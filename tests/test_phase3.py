@@ -163,9 +163,14 @@ def test_mcp_tool_timeout_enforcement(valid_roe):
     session = EngagementSession(roe=valid_roe, approval_callback=lambda tool, tier: True)
     input_model = mcp_tool.input_schema(target="127.0.0.1")
     
-    # Mock subprocess.Popen to simulate a hanging readline call
+    # Mock subprocess.Popen to simulate a hanging readline call without thread warning errors
+    import time
+    def mock_hang():
+        time.sleep(3)
+        return ""
+        
     mock_proc = MagicMock()
-    mock_proc.stdout.readline.side_effect = lambda: pytest.fail("Process readline blocked as expected")
+    mock_proc.stdout.readline.side_effect = mock_hang
     
     # We patch _is_docker_available to skip daemon validation check
     with patch.object(MCPToolSpec, "_is_docker_available", return_value=True):
@@ -257,3 +262,79 @@ def test_cli_approval_blocking_rejection(valid_roe):
                         cli_main()
                         
                     assert sys_exit.value.code == 1
+
+
+# --- 7. Real Unmocked Containerized MCP Scan ---
+
+def test_mcp_real_local_container_scan(valid_roe):
+    """Verify a real, unmocked run of an actual MCP server container against a target with ground truth."""
+    import socket
+    import http.server
+    import threading
+    import subprocess
+
+    # 1. Check if Docker is available
+    env = os.environ.copy()
+    docker_bin = r"C:\Program Files\Docker\Docker\resources\bin"
+    if os.path.exists(docker_bin) and docker_bin not in env.get("PATH", ""):
+        env["PATH"] += ";" + docker_bin
+
+    try:
+        res = subprocess.run(["docker", "info"], capture_output=True, text=True, env=env)
+        if res.returncode != 0:
+            pytest.skip("Docker daemon not running, skipping real E2E container scan.")
+    except Exception:
+        pytest.skip("Docker not installed, skipping real E2E container scan.")
+
+    # 2. Spin up local HTTP server on a random port to serve as ground truth target
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_sock.bind(("127.0.0.1", 0))
+    port = server_sock.getsockname()[1]
+    server_sock.close()
+
+    handler = http.server.SimpleHTTPRequestHandler
+    httpd = http.server.HTTPServer(("127.0.0.1", port), handler)
+
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+
+    # 3. Define allowed registry configuration using our local image with its real digest
+    config = {
+        "servers": {
+            "real_mcp_test_server": {
+                "image": "local/mcp-test-server@sha256:ad089b4925f18705e3c9f792af3158d5f9fe8ccf73b806ca461783b436a73aa9",
+                "tools": {
+                    "check_port": {
+                        "risk_tier": "active-safe",
+                        "target_parameter": "host_ip"
+                    }
+                }
+            }
+        }
+    }
+
+    try:
+        # Load and retrieve MCPToolSpec
+        tools = load_mcp_tools_from_config(config)
+        mcp_tool = tools[0]
+
+        session = EngagementSession(roe=valid_roe, approval_callback=lambda tool, tier: True)
+        
+        # Instantiate dynamic schema for the check_port tool (target_parameter is host_ip)
+        input_model = mcp_tool.input_schema(host_ip="127.0.0.1", port=port)
+        
+        # Invoke the real container scan E2E
+        result = mcp_tool.run(session, input_model)
+        
+        assert result.success is True
+        # Verify the returned content shows the port is open (ground truth match)
+        content = result.result.get("content", [])
+        assert len(content) > 0
+        parsed_text = json.loads(content[0].get("text", "{}"))
+        assert parsed_text.get("port") == port
+        assert parsed_text.get("open") is True
+        
+    finally:
+        httpd.shutdown()
+        t.join(timeout=2)
+

@@ -6,7 +6,7 @@ import subprocess
 import queue
 import threading
 from typing import Any, Dict, List, Optional, Type
-from pydantic import BaseModel, Field, field_validator, create_model
+from pydantic import BaseModel, Field, field_validator, create_model, ConfigDict
 
 from cadresec.core.roe import RiskTier
 from cadresec.core.tools import ToolSpec
@@ -42,6 +42,35 @@ class MCPServerConfig(BaseModel):
                 f"Image Reference '{v}' is invalid. For supply-chain integrity, "
                 "images must be pinned by SHA-256 digest (e.g. image@sha256:digest)."
             )
+        
+        # Verify if Docker is available and check that the image resolves/pulls
+        import subprocess
+        import os
+        env = os.environ.copy()
+        docker_bin = r"C:\Program Files\Docker\Docker\resources\bin"
+        if os.path.exists(docker_bin) and docker_bin not in env.get("PATH", ""):
+            env["PATH"] += ";" + docker_bin
+
+        docker_available = False
+        try:
+            res = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=3, env=env)
+            docker_available = (res.returncode == 0)
+        except Exception:
+            pass
+
+        if docker_available:
+            try:
+                # 1. Attempt local image inspect
+                subprocess.run(["docker", "image", "inspect", v], capture_output=True, text=True, check=True, env=env)
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                # 2. Fallback: Attempt pulling the digest image from external registry
+                try:
+                    subprocess.run(["docker", "pull", v], capture_output=True, text=True, check=True, env=env)
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    raise ValueError(
+                        f"Image Reference '{v}' could not be resolved locally or pulled from registry. "
+                        "Ensure the image name and SHA-256 digest are valid."
+                    )
         return v
 
 
@@ -211,10 +240,11 @@ def load_mcp_tools_from_config(config_data: Dict[str, Any]) -> List[MCPToolSpec]
             if tool_config.target_parameter:
                 fields[tool_config.target_parameter] = (str, Field(..., description="Target scan address"))
             
-            # Generate input schema class
+            # Generate input schema class allowing extra fields (like port)
             input_schema_class = create_model(
                 f"{tool_name}Input",
                 __base__=BaseModel,
+                __config__=ConfigDict(extra="allow"),
                 **fields
             )
 
