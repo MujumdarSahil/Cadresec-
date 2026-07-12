@@ -37,6 +37,9 @@ class EngagementSession:
         # Internal state
         self._is_killed = False
         self.approved_active_safe_tools = set()  # Cache of active-safe tools approved in this session
+        self.use_interrupts = False
+        self.pending_approval = None
+        self.approved_active_risky_calls = set()
 
         # Record session initialization
         self.audit.record(

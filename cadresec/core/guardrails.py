@@ -6,6 +6,7 @@ from cadresec.core.exceptions import (
     DestructiveToolError
 )
 from cadresec.core.roe import RiskTier
+from langgraph.errors import NodeInterrupt
 
 
 class Guardrails:
@@ -48,14 +49,7 @@ class Guardrails:
             raise ScopeViolationError(f"Target '{target}' is not within the authorized scope of the Rules of Engagement.")
 
     def assert_approved(self, tool_name: str, risk_tier: str) -> None:
-        """Enforces the approval matrix based on the risk tier of the tool.
-        
-        Tiers:
-        - passive: Auto-approved.
-        - active-safe: Confirmed once per session.
-        - active-risky: Confirmed every call.
-        - destructive: Hard-rejected (unsupported).
-        """
+        """Enforces the approval matrix based on the risk tier of the tool."""
         self.session.assert_not_killed()
         
         # 1. Normalize risk tier and validate with RoE permitted tiers
@@ -121,7 +115,19 @@ class Guardrails:
                 )
                 return
             
-            # Request approval
+            if getattr(self.session, "use_interrupts", False):
+                self.session.pending_approval = {"tool_name": tool_name, "risk_tier": risk_tier}
+                self.session.audit.record(
+                    event_type="GUARDRAIL_APPROVAL_REQUEST",
+                    actor="guardrails",
+                    details={
+                        "tool_name": tool_name,
+                        "risk_tier": risk_tier
+                    }
+                )
+                raise NodeInterrupt(f"Approval required for active-safe tool '{tool_name}'")
+            
+            # Request approval (CLI interactive blocking call)
             approved = self._request_human_approval(tool_name, risk_tier)
             if approved:
                 self.session.approved_active_safe_tools.add(tool_name)
@@ -148,6 +154,33 @@ class Guardrails:
 
         # 5. Active-risky tier (confirm every call)
         if tier_enum == RiskTier.ACTIVE_RISKY:
+            # Check if this specific tool run was approved in the API approved list
+            approved_risky = getattr(self.session, "approved_active_risky_calls", set())
+            if tool_name in approved_risky:
+                approved_risky.remove(tool_name)
+                self.session.audit.record(
+                    event_type="GUARDRAIL_APPROVAL_GRANTED",
+                    actor="guardrails",
+                    details={
+                        "tool_name": tool_name,
+                        "risk_tier": risk_tier,
+                        "mechanism": "human-api-every"
+                    }
+                )
+                return
+
+            if getattr(self.session, "use_interrupts", False):
+                self.session.pending_approval = {"tool_name": tool_name, "risk_tier": risk_tier}
+                self.session.audit.record(
+                    event_type="GUARDRAIL_APPROVAL_REQUEST",
+                    actor="guardrails",
+                    details={
+                        "tool_name": tool_name,
+                        "risk_tier": risk_tier
+                    }
+                )
+                raise NodeInterrupt(f"Approval required for active-risky tool '{tool_name}'")
+
             approved = self._request_human_approval(tool_name, risk_tier)
             if approved:
                 self.session.audit.record(

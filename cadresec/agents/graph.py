@@ -48,7 +48,7 @@ def route_next_agent(state: AgentState) -> str:
     return END
 
 
-def build_graph():
+def build_graph(checkpointer=None):
     """Builds and compiles the parent LangGraph coordinating the five domain agents."""
     builder = StateGraph(AgentState)
     
@@ -81,6 +81,7 @@ def build_graph():
     builder.add_edge("triage_agent", "reporting_agent")
     builder.add_edge("reporting_agent", END)
     
-    # Enable in-memory checkpointing
-    checkpointer = MemorySaver()
+    # Enable checkpointing
+    if checkpointer is None:
+        checkpointer = MemorySaver()
     return builder.compile(checkpointer=checkpointer)
