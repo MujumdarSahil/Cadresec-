@@ -54,6 +54,7 @@ class DiscoveryDevice(BaseModel):
     ip: str
     hostname: Optional[str] = None
     os: Optional[str] = None
+    description: Optional[str] = None
     services: List[DiscoveredService] = Field(default_factory=list)
 
 
@@ -64,6 +65,31 @@ class OCSFDiscovery(BaseModel):
     time: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     device: DiscoveryDevice
     session_id: str
+
+
+class FindingInfo(BaseModel):
+    title: str
+    description: Optional[str] = None
+    uid: str
+
+
+class Vulnerability(BaseModel):
+    cve: Optional[str] = None
+    severity: str  # Critical, High, Medium, Low, Info
+    cvss_score: Optional[float] = None
+    references: List[str] = Field(default_factory=list)
+
+
+class OCSFVulnerabilityFinding(BaseModel):
+    class_uid: int = 2002
+    class_name: str = "Vulnerability Finding"
+    activity_id: int = 1
+    time: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    finding_info: FindingInfo
+    vulnerability: Vulnerability
+    device: DiscoveryDevice
+    session_id: str
+
 
 
 # --- OCSF Event Store Backend ---

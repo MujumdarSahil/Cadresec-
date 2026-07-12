@@ -1,4 +1,4 @@
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, Optional
 from pydantic import BaseModel, Field
 from cadresec.core.roe import RiskTier
 from cadresec.core.exceptions import ScopeViolationError, ApprovalViolationError, SandboxUnavailableError
@@ -22,6 +22,13 @@ class ToolSpec(BaseModel):
         except (subprocess.SubprocessError, FileNotFoundError):
             return False
 
+    def get_target(self, input_data: BaseModel) -> Optional[str]:
+        """Retrieves the target address value from the input data.
+        
+        Subclasses (such as MCP Tool Adapters) can override this to support custom target fields.
+        """
+        return getattr(input_data, "target", None)
+
     def run(self, session, input_data: BaseModel) -> BaseModel:
         """Executes the tool wrapper, strictly gating on Rules of Engagement scope and risk-tier approvals.
         
@@ -31,11 +38,12 @@ class ToolSpec(BaseModel):
         if not isinstance(input_data, self.input_schema):
             raise TypeError(f"Input data must be an instance of {self.input_schema.__name__}")
 
-        # Ensure 'target' is present in input
-        if not hasattr(input_data, "target"):
-            raise ValueError("Tool input schema must contain a 'target' field.")
-
-        target = getattr(input_data, "target")
+        target = self.get_target(input_data)
+        if not target:
+            raise ValueError(
+                f"Tool input schema must contain a 'target' field or a custom parameter mapping "
+                f"resolving to a target address. Got input: {input_data}"
+            )
 
         # 1. ENFORCE SCOPE GUARDRAIL
         session.guardrails.assert_in_scope(target)
@@ -93,11 +101,14 @@ class ToolSpec(BaseModel):
                 raise TypeError(f"Tool implementation returned {type(result).__name__}, expected {self.output_schema.__name__}")
 
             # Log tool execution success
+            actual_scanned = getattr(result, "actual_scanned_address", target)
             session.audit.record(
                 event_type="TOOL_EXECUTION_SUCCESS",
                 actor="system",
                 details={
                     "tool_name": self.name,
+                    "authorized_target": target,
+                    "actual_scanned_address": actual_scanned,
                     "output_summary": str(result.model_dump())[:200]
                 }
             )

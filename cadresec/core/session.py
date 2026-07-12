@@ -64,3 +64,12 @@ class EngagementSession:
         """Asserts that the session has not been killed, raising an error if it has."""
         if self._is_killed:
             raise EngagementKilledError("This engagement session has been killed and cannot execute any commands.")
+            
+        # Also check the database ledger for a SESSION_KILL record (enables cross-process kills)
+        try:
+            events = self.audit.get_events()
+            if any(e["event_type"] == "SESSION_KILL" for e in events):
+                self._is_killed = True
+                raise EngagementKilledError("This engagement session has been killed and cannot execute any commands.")
+        except Exception:
+            pass

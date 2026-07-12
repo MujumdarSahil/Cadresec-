@@ -18,6 +18,7 @@ class NmapOutput(BaseModel):
     success: bool = Field(..., description="True if command completed successfully")
     raw_xml: str = Field(..., description="Raw XML output from the nmap execution")
     parsed_hosts: List[Dict[str, Any]] = Field(default_factory=list, description="Extracted host and service discovery data")
+    actual_scanned_address: str = Field(default="", description="The raw IP address/hostname requested by the container process")
 
 
 class NmapToolSpec(ToolSpec):
@@ -105,14 +106,17 @@ class NmapToolSpec(ToolSpec):
                 host["ip"] = original_target
                 host["hostname"] = "localhost"
 
+        actual_addr = scan_target if use_sandbox else original_target
+
         # Write to OCSF Event Store
-        self._map_and_write_ocsf(session, original_target, parsed_hosts)
+        self._map_and_write_ocsf(session, original_target, parsed_hosts, actual_addr)
 
         return NmapOutput(
             target=original_target,
             success=success,
             raw_xml=raw_xml,
-            parsed_hosts=parsed_hosts
+            parsed_hosts=parsed_hosts,
+            actual_scanned_address=actual_addr
         )
 
     def _parse_nmap_xml(self, xml_content: str) -> List[Dict[str, Any]]:
@@ -167,7 +171,7 @@ class NmapToolSpec(ToolSpec):
             pass
         return hosts
 
-    def _map_and_write_ocsf(self, session, target: str, parsed_hosts: List[Dict[str, Any]]) -> None:
+    def _map_and_write_ocsf(self, session, target: str, parsed_hosts: List[Dict[str, Any]], actual_scanned: str) -> None:
         """Maps target scan details into OCSF Discovery and NetworkActivity structures and stores them."""
         for host in parsed_hosts:
             host_ip = host["ip"] or target
@@ -197,12 +201,18 @@ class NmapToolSpec(ToolSpec):
                 session.ocsf.write_event(session.session_id, 4001, activity)
 
             # Write Device Discovery Event
+            desc = None
+            if target != actual_scanned:
+                desc = f"Remapped localhost scan target '{target}' to actual address '{actual_scanned}' inside container."
+
             discovery = OCSFDiscovery(
                 device=DiscoveryDevice(
                     ip=host_ip,
                     hostname=host_name,
-                    services=services
+                    services=services,
+                    description=desc
                 ),
                 session_id=session.session_id
             )
             session.ocsf.write_event(session.session_id, 5010, discovery)
+
