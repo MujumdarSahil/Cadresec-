@@ -338,3 +338,80 @@ def test_mcp_real_local_container_scan(valid_roe):
         httpd.shutdown()
         t.join(timeout=2)
 
+
+# --- 8. Real Container Timeout Hard Kill Verification ---
+
+def test_mcp_real_container_timeout_actually_killed(valid_roe):
+    """Verify that when a timeout triggers, the Docker container is authoritatively killed and removed from the daemon."""
+    import subprocess
+    import time
+
+    # 1. Check if Docker is available
+    env = os.environ.copy()
+    docker_bin = r"C:\Program Files\Docker\Docker\resources\bin"
+    if os.path.exists(docker_bin) and docker_bin not in env.get("PATH", ""):
+        env["PATH"] += ";" + docker_bin
+
+    try:
+        res = subprocess.run(["docker", "info"], capture_output=True, text=True, env=env)
+        if res.returncode != 0:
+            pytest.skip("Docker daemon not running.")
+    except Exception:
+        pytest.skip("Docker not installed.")
+
+    # Define registry config with 1 second timeout
+    config = {
+        "servers": {
+            "real_mcp_timeout_kill_test": {
+                "image": "local/mcp-test-server@sha256:ad089b4925f18705e3c9f792af3158d5f9fe8ccf73b806ca461783b436a73aa9",
+                "tools": {
+                    "check_port": {
+                        "risk_tier": "active-safe",
+                        "target_parameter": "host_ip",
+                        "timeout_seconds": 1  # 1 second timeout
+                    }
+                }
+            }
+        }
+    }
+
+    tools = load_mcp_tools_from_config(config)
+    mcp_tool = tools[0]
+
+    session = EngagementSession(roe=valid_roe, approval_callback=lambda tool, tier: True)
+    input_model = mcp_tool.input_schema(host_ip="127.0.0.1", port=80)
+
+    # Intercept subprocess.Popen to capture the generated container name and simulate blocking read
+    original_popen = subprocess.Popen
+    container_name = None
+
+    def custom_popen(args, *p_args, **kwargs):
+        nonlocal container_name
+        if isinstance(args, list) and "--name" in args:
+            idx = args.index("--name")
+            container_name = args[idx + 1]
+        
+        proc = original_popen(args, *p_args, **kwargs)
+        
+        # Override readline to sleep, triggering python-side timeout
+        def mock_readline():
+            time.sleep(5)
+            return ""
+        proc.stdout.readline = mock_readline
+        return proc
+
+    with patch("subprocess.Popen", side_effect=custom_popen):
+        with pytest.raises(TimeoutError, match="timed out after 1 seconds"):
+            mcp_tool.run(session, input_model)
+
+    assert container_name is not None
+    
+    # Wait a brief moment for the docker daemon kill signals and cleanup to settle
+    time.sleep(1)
+
+    # Verify that the container is no longer listed in active/inactive containers on the daemon
+    ps_res = subprocess.run(["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Names}}"], capture_output=True, text=True, env=env)
+    
+    assert container_name not in ps_res.stdout
+
+

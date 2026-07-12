@@ -105,11 +105,17 @@ class MCPToolSpec(ToolSpec):
         if target and isinstance(target, str) and target.strip().lower() in ("127.0.0.1", "localhost"):
             is_local = True
 
+        # Build unique container name if containerized to allow hard killing via docker daemon
+        container_name = None
+        if use_sandbox:
+            import time
+            container_name = f"cadresec_{session.session_id}_{self.name}_{int(time.time())}"
+
         # Build command array
         scan_target = target
         cmd = []
         if use_sandbox:
-            cmd = ["docker", "run", "-i", "--rm"]
+            cmd = ["docker", "run", "-i", "--rm", "--name", container_name]
             if is_local:
                 cmd.extend(["--add-host", "host.docker.internal:host-gateway"])
                 # Remap loopback target inside arguments for container networking compatibility
@@ -203,6 +209,19 @@ class MCPToolSpec(ToolSpec):
                 proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                
+            # If sandboxed, run explicit docker kill to ensure the daemon terminates the container immediately
+            if use_sandbox and container_name:
+                import subprocess as sp
+                import os
+                env = os.environ.copy()
+                docker_bin = r"C:\Program Files\Docker\Docker\resources\bin"
+                if os.path.exists(docker_bin) and docker_bin not in env.get("PATH", ""):
+                    env["PATH"] += ";" + docker_bin
+                try:
+                    sp.run(["docker", "kill", container_name], capture_output=True, env=env)
+                except Exception:
+                    pass
                 
             session.audit.record(
                 event_type="MCP_TOOL_TIMEOUT",
