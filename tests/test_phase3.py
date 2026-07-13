@@ -40,9 +40,17 @@ def valid_roe():
     )
 
 
+@pytest.fixture
+def mock_docker_unavailable():
+    with patch("subprocess.run") as mock_run:
+        # Simulate Docker not installed/running by throwing FileNotFoundError
+        mock_run.side_effect = FileNotFoundError("mocked no docker")
+        yield mock_run
+
+
 # --- 1. Image Digest Pinning Tests ---
 
-def test_mcp_image_digest_validation():
+def test_mcp_image_digest_validation(mock_docker_unavailable):
     """Verify that MCP server registration requires images to be pinned by SHA-256 digest."""
     valid_config = {
         "servers": {
@@ -84,7 +92,7 @@ def test_mcp_image_digest_validation():
 
 # --- 2. Target-less Passive Capping Tests ---
 
-def test_mcp_targetless_tool_passive_capping():
+def test_mcp_targetless_tool_passive_capping(mock_docker_unavailable):
     """Verify that target-less tools are strictly capped at the passive risk tier at registration."""
     invalid_config = {
         "servers": {
@@ -106,7 +114,7 @@ def test_mcp_targetless_tool_passive_capping():
 
 # --- 3. MCP Adapter Out-of-Scope Blocking ---
 
-def test_mcp_adapter_enforces_scope(valid_roe):
+def test_mcp_adapter_enforces_scope(valid_roe, mock_docker_unavailable):
     """Verify that MCPToolSpec.run() enforces target scope checks at the boundary."""
     config = {
         "servers": {
@@ -140,7 +148,7 @@ def test_mcp_adapter_enforces_scope(valid_roe):
 
 # --- 4. MCP Tool Execution Timeout ---
 
-def test_mcp_tool_timeout_enforcement(valid_roe):
+def test_mcp_tool_timeout_enforcement(valid_roe, mock_docker_unavailable):
     """Verify that MCPToolSpec._execute() terminates hanging processes and logs MCP_TOOL_TIMEOUT."""
     config = {
         "servers": {
@@ -186,7 +194,7 @@ def test_mcp_tool_timeout_enforcement(valid_roe):
 
 # --- 5. E2E MCP Remapped Server Scan ---
 
-def test_mcp_e2e_remapped_scan(valid_roe):
+def test_mcp_e2e_remapped_scan(valid_roe, mock_docker_unavailable):
     """Verify standard stdio mapping and Docker loopback address remapping."""
     config = {
         "servers": {
@@ -302,7 +310,7 @@ def test_mcp_real_local_container_scan(valid_roe):
     config = {
         "servers": {
             "real_mcp_test_server": {
-                "image": "local/mcp-test-server@sha256:ad089b4925f18705e3c9f792af3158d5f9fe8ccf73b806ca461783b436a73aa9",
+                "image": "local/mcp-test-server@sha256:4d374f1d619fe093dc7e6e74873347db26f884e31cce3c2d906c23b4cc464b0a",
                 "tools": {
                     "check_port": {
                         "risk_tier": "active-safe",
@@ -363,7 +371,7 @@ def test_mcp_real_container_timeout_actually_killed(valid_roe):
     config = {
         "servers": {
             "real_mcp_timeout_kill_test": {
-                "image": "local/mcp-test-server@sha256:ad089b4925f18705e3c9f792af3158d5f9fe8ccf73b806ca461783b436a73aa9",
+                "image": "local/mcp-test-server@sha256:4d374f1d619fe093dc7e6e74873347db26f884e31cce3c2d906c23b4cc464b0a",
                 "tools": {
                     "check_port": {
                         "risk_tier": "active-safe",

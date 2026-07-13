@@ -5,6 +5,8 @@ import threading
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import create_engine, Column, String, Text
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from cadresec.core.exceptions import CadresecError
 from cadresec.core.roe import RulesOfEngagement, RiskTier
@@ -65,8 +67,28 @@ def rate_limit(endpoint_name: str, max_requests: int, window_seconds: int):
 
 # RAM cache for active session objects
 active_sessions: Dict[str, EngagementSession] = {}
-session_metadata_store = "sessions_store.json"
 checkpoints_db = "cadresec_checkpoints.db"
+engagement_db = "cadresec_engagement.db"
+
+# Database metadata engine setup
+engine = create_engine(f"sqlite:///{engagement_db}", connect_args={"timeout": 30})
+Base = declarative_base()
+
+class SessionMetadataRecord(Base):
+    __tablename__ = "session_metadata"
+    
+    session_id = Column(String, primary_key=True)
+    roe = Column(Text, nullable=False)
+    target = Column(String, nullable=False)
+    mcp_config = Column(Text, nullable=True)
+    status = Column(String, nullable=False)
+    pending_approval = Column(Text, nullable=True)
+    approved_active_safe_tools = Column(Text, nullable=False)
+    approved_active_risky_calls = Column(Text, nullable=False)
+    error = Column(Text, nullable=True)
+
+Base.metadata.create_all(engine)
+SessionLocal = sessionmaker(bind=engine)
 
 
 class SessionPayload(BaseModel):
@@ -79,47 +101,49 @@ class ApprovalPayload(BaseModel):
     tool_name: str = Field(..., description="Name of the tool to authorize")
 
 
-def save_sessions_to_disk():
-    """Serializes in-memory session metadata to disk to persist across server restarts."""
-    metadata = {}
-    for sid, sess in active_sessions.items():
-        metadata[sid] = {
-            "roe": sess.roe.model_dump(),
-            "target": getattr(sess, "target_ip", ""),
-            "mcp_config": getattr(sess, "mcp_config", None),
-            "status": getattr(sess, "status", "unknown"),
-            "pending_approval": sess.pending_approval,
-            "approved_active_safe_tools": list(sess.approved_active_safe_tools),
-            "approved_active_risky_calls": list(sess.approved_active_risky_calls),
-            "error": getattr(sess, "error_msg", None)
-        }
-    try:
-        with open(session_metadata_store, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
-    except Exception:
-        pass
-
-
-def load_sessions_from_disk():
-    """Restores session instances from persistent metadata on boot."""
-    if not os.path.exists(session_metadata_store):
+def save_session_to_db(session_id: str):
+    """Saves/updates a single session's metadata in the SQLite DB to persist across server restarts."""
+    sess = active_sessions.get(session_id)
+    if not sess:
         return
+    db_session = SessionLocal()
     try:
-        with open(session_metadata_store, "r", encoding="utf-8") as f:
-            metadata = json.load(f)
-            
-        for sid, data in metadata.items():
-            roe = RulesOfEngagement.model_validate(data["roe"])
+        record = SessionMetadataRecord(
+            session_id=session_id,
+            roe=sess.roe.model_dump_json(),
+            target=getattr(sess, "target_ip", ""),
+            mcp_config=json.dumps(sess.mcp_config) if getattr(sess, "mcp_config", None) else None,
+            status=getattr(sess, "status", "unknown"),
+            pending_approval=json.dumps(sess.pending_approval) if sess.pending_approval else None,
+            approved_active_safe_tools=json.dumps(list(sess.approved_active_safe_tools)),
+            approved_active_risky_calls=json.dumps(list(sess.approved_active_risky_calls)),
+            error=getattr(sess, "error_msg", None)
+        )
+        db_session.merge(record)
+        db_session.commit()
+    except Exception as e:
+        print(f"Error saving session metadata: {e}")
+    finally:
+        db_session.close()
+
+
+def load_sessions_from_db():
+    """Restores session instances from persistent metadata in the SQLite DB on boot."""
+    db_session = SessionLocal()
+    try:
+        records = db_session.query(SessionMetadataRecord).all()
+        for record in records:
+            roe = RulesOfEngagement.model_validate_json(record.roe)
             # Reconstruct session binding
-            sess = EngagementSession(roe, session_id=sid, db_url="sqlite:///cadresec_engagement.db")
+            sess = EngagementSession(roe, session_id=record.session_id, db_url=f"sqlite:///{engagement_db}")
             sess.use_interrupts = True
-            sess.target_ip = data["target"]
-            sess.mcp_config = data["mcp_config"]
-            sess.status = data["status"]
-            sess.pending_approval = data["pending_approval"]
-            sess.approved_active_safe_tools = set(data["approved_active_safe_tools"])
-            sess.approved_active_risky_calls = set(data["approved_active_risky_calls"])
-            sess.error_msg = data.get("error")
+            sess.target_ip = record.target
+            sess.mcp_config = json.loads(record.mcp_config) if record.mcp_config else None
+            sess.status = record.status
+            sess.pending_approval = json.loads(record.pending_approval) if record.pending_approval else None
+            sess.approved_active_safe_tools = set(json.loads(record.approved_active_safe_tools))
+            sess.approved_active_risky_calls = set(json.loads(record.approved_active_risky_calls))
+            sess.error_msg = record.error
             
             # Register MCP tools if configured
             if sess.mcp_config:
@@ -128,13 +152,15 @@ def load_sessions_from_disk():
                 except Exception:
                     pass
 
-            active_sessions[sid] = sess
-    except Exception:
-        pass
+            active_sessions[record.session_id] = sess
+    except Exception as e:
+        print(f"Error loading sessions: {e}")
+    finally:
+        db_session.close()
 
 
 # Restore state on app initialization
-load_sessions_from_disk()
+load_sessions_from_db()
 
 
 # --- 4. BACKWARDS COMPATIBLE DOCKER ENVIRONMENT INJECTION ---
@@ -208,7 +234,7 @@ def run_session_worker(session_id: str, target: str):
             sess.error_msg = str(e)
             sess.pending_approval = None
         finally:
-            save_sessions_to_disk()
+            save_session_to_db(session_id)
 
 
 # --- 6. ENDPOINTS ROUTING ---
@@ -243,7 +269,7 @@ async def create_session(payload: SessionPayload):
             raise HTTPException(status_code=400, detail=f"Failed to validate MCP allowed registry: {str(e)}")
 
     active_sessions[sess.session_id] = sess
-    save_sessions_to_disk()
+    save_session_to_db(sess.session_id)
 
     # Spawn thread-safe worker loop in background thread
     t = threading.Thread(target=run_session_worker, args=(sess.session_id, payload.target), daemon=True)
@@ -318,7 +344,7 @@ async def approve_tool(id: str, payload: ApprovalPayload):
 
     sess.pending_approval = None
     sess.status = "running"
-    save_sessions_to_disk()
+    save_session_to_db(id)
 
     # Resume the thread-safe worker loop in background thread
     t = threading.Thread(target=run_session_worker, args=(id, sess.target_ip), daemon=True)
@@ -363,7 +389,7 @@ async def reject_tool(id: str, payload: ApprovalPayload):
     sess.pending_approval = None
     sess.status = "rejected"
     sess.error_msg = f"Operator rejected execution of tool '{payload.tool_name}' (tier: {tier_str})"
-    save_sessions_to_disk()
+    save_session_to_db(id)
 
     return {"session_id": id, "status": sess.status}
 
@@ -380,7 +406,7 @@ async def kill_session(id: str):
         
     sess.kill()
     sess.status = "killed"
-    save_sessions_to_disk()
+    save_session_to_db(id)
     return {"session_id": id, "status": sess.status}
 
 

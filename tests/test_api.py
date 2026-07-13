@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + "/.."))
 
 # Set environment variable before importing API to satisfy boot security check
 os.environ["CADRESEC_API_KEY"] = "test_auth_secret_key"
-from cadresec.api import app, active_sessions, checkpoints_db, session_metadata_store
+from cadresec.api import app, active_sessions, checkpoints_db, engagement_db
 
 
 @pytest.fixture(autouse=True)
@@ -30,10 +30,10 @@ def clean_database_and_sessions():
         except Exception:
             pass
             
-    # Remove sessions metadata store
-    if os.path.exists(session_metadata_store):
+    # Remove SQLite engagement DB if present
+    if os.path.exists(engagement_db):
         try:
-            os.remove(session_metadata_store)
+            os.remove(engagement_db)
         except Exception:
             pass
             
@@ -46,9 +46,9 @@ def clean_database_and_sessions():
             os.remove(checkpoints_db)
         except Exception:
             pass
-    if os.path.exists(session_metadata_store):
+    if os.path.exists(engagement_db):
         try:
-            os.remove(session_metadata_store)
+            os.remove(engagement_db)
         except Exception:
             pass
 
@@ -259,3 +259,77 @@ def test_concurrent_sessions_resume(api_client):
         print(f"\n[DEBUG] Session B final status: {status_b}")
     assert completed_a is True
     assert completed_b is True
+
+
+# --- 6. Concurrent Session Metadata Database Writes Test ---
+
+def test_concurrent_database_metadata_writes():
+    """Verify that multiple concurrent threads can write and update session metadata in the SQLite DB without conflicts or data loss."""
+    import threading
+    from cadresec.core.roe import RulesOfEngagement
+    from cadresec.core.session import EngagementSession
+    from cadresec.api import save_session_to_db, SessionLocal, SessionMetadataRecord
+    
+    num_threads = 20
+    num_updates_per_thread = 10
+    threads = []
+    
+    # Pre-populate active_sessions with unique sessions
+    for i in range(num_threads):
+        sid = f"thread-session-{i}"
+        import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
+        roe = RulesOfEngagement(
+            authorized_scope=["127.0.0.1"],
+            start_time=now - datetime.timedelta(hours=1),
+            end_time=now + datetime.timedelta(hours=2),
+            permitted_risk_tiers=["passive", "active-safe"],
+            authorizing_party=f"CISO Admin Thread {i}"
+        )
+        # Create session
+        sess = EngagementSession(roe, session_id=sid, db_url=f"sqlite:///{engagement_db}")
+        sess.target_ip = "127.0.0.1"
+        sess.status = "created"
+        sess.pending_approval = None
+        active_sessions[sid] = sess
+
+    def worker_write_task(thread_index):
+        sid = f"thread-session-{thread_index}"
+        sess = active_sessions[sid]
+        
+        for u in range(num_updates_per_thread):
+            # Update status dynamically to simulate active progress updates
+            sess.status = f"running-step-{u}"
+            if u % 2 == 0:
+                sess.pending_approval = {"tool_name": f"nmap-{u}", "risk_tier": "active-safe"}
+            else:
+                sess.pending_approval = None
+            
+            # Write to database (thread-safe session setup handles this via connect_args timeout)
+            save_session_to_db(sid)
+            time.sleep(0.01)  # Yield/simulate small delay
+
+    # Launch threads
+    for i in range(num_threads):
+        t = threading.Thread(target=worker_write_task, args=(i,))
+        threads.append(t)
+        t.start()
+
+    # Join threads
+    for t in threads:
+        t.join()
+
+    # Verify database contents
+    db_session = SessionLocal()
+    try:
+        records = db_session.query(SessionMetadataRecord).filter(SessionMetadataRecord.session_id.like("thread-session-%")).all()
+        assert len(records) == num_threads
+        
+        for record in records:
+            assert record.session_id.startswith("thread-session-")
+            # The status should have reached the last step (running-step-9)
+            assert record.status == f"running-step-{num_updates_per_thread - 1}"
+            # The last step (9) is odd, so pending_approval should be None (NULL in SQLite)
+            assert record.pending_approval is None
+    finally:
+        db_session.close()

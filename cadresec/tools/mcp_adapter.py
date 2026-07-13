@@ -53,7 +53,7 @@ class MCPServerConfig(BaseModel):
 
         docker_available = False
         try:
-            res = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=3, env=env)
+            res = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=10, env=env)
             docker_available = (res.returncode == 0)
         except Exception:
             pass
@@ -184,6 +184,8 @@ class MCPToolSpec(ToolSpec):
             
             # Success: Terminate the container session cleanly
             proc.stdin.close()
+            proc.stdout.close()
+            proc.stderr.close()
             proc.terminate()
             proc.wait(timeout=2)
             
@@ -204,6 +206,9 @@ class MCPToolSpec(ToolSpec):
 
         except queue.Empty:
             # TIMEOUT EXPIRED: Kill the container hard and log
+            proc.stdin.close()
+            proc.stdout.close()
+            proc.stderr.close()
             proc.terminate()
             try:
                 proc.wait(timeout=2)
@@ -234,6 +239,9 @@ class MCPToolSpec(ToolSpec):
             )
             raise TimeoutError(f"MCP tool execution timed out after {self.timeout_seconds} seconds.")
         except Exception as e:
+            proc.stdin.close()
+            proc.stdout.close()
+            proc.stderr.close()
             proc.terminate()
             raise e
 

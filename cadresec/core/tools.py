@@ -17,7 +17,7 @@ class ToolSpec(BaseModel):
         """Helper to determine if the local Docker daemon is running and reachable."""
         import subprocess
         try:
-            res = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=2)
+            res = subprocess.run(["docker", "info"], capture_output=True, text=True, timeout=10)
             return res.returncode == 0
         except (subprocess.SubprocessError, FileNotFoundError):
             return False

@@ -25,10 +25,10 @@ class SSLOutput(BaseModel):
 class SSLToolSpec(ToolSpec):
     name: str = "ssl_expiry"
     description: str = "Retrieves public SSL certificates and verifies expiry dates"
-    risk_tier: RiskTier = RiskTier.PASSIVE
+    risk_tier: RiskTier = RiskTier.ACTIVE_SAFE
     input_schema: type[BaseModel] = SSLInput
     output_schema: type[BaseModel] = SSLOutput
-    sandbox_requirements: Dict[str, Any] = {}  # Passive tool, does not require sandboxing
+    sandbox_requirements: Dict[str, Any] = {}  # Active tool, but executes via native python socket context (no host binary wrapper)
     source: str = "builtin"
 
     def _execute(self, session, input_data: SSLInput, use_sandbox: bool = True) -> SSLOutput:

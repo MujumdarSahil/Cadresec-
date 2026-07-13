@@ -27,6 +27,18 @@ def main():
                                     },
                                     "required": ["host_ip", "port"]
                                 }
+                            },
+                            {
+                                "name": "ping_check",
+                                "description": "Active-safe TCP connect ping to a target host IP",
+                                "inputSchema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "host_ip": {"type": "string"},
+                                        "timeout_seconds": {"type": "integer", "default": 2}
+                                    },
+                                    "required": ["host_ip"]
+                                }
                             }
                         ]
                     },
@@ -59,6 +71,33 @@ def main():
                                 {
                                     "type": "text",
                                     "text": json.dumps({"port": port, "open": is_open})
+                                }
+                            ]
+                        },
+                        "id": req_id
+                    }
+                elif name == "ping_check":
+                    host_ip = arguments.get("host_ip", "host.docker.internal")
+                    timeout_seconds = int(arguments.get("timeout_seconds", 2))
+                    
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(timeout_seconds)  # Explicit socket-level timeout
+                    try:
+                        # Attempt connection to port 80 to check if host responds
+                        result = sock.connect_ex((host_ip, 80))
+                        is_open = (result == 0)
+                    except Exception:
+                        is_open = False
+                    finally:
+                        sock.close()
+                        
+                    res = {
+                        "jsonrpc": "2.0",
+                        "result": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": json.dumps({"host_ip": host_ip, "open": is_open})
                                 }
                             ]
                         },

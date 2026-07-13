@@ -11,6 +11,9 @@ Every tool in the framework must inherit from the `ToolSpec` base class defined 
 ### The Guardrail Contract (CRITICAL)
 Per framework principles, **all guardrails are enforced inside `ToolSpec.run()`**. This public interface validates target scope and operator approval BEFORE delegating to the custom tool's internal execution logic. Contributors must override the abstract method `_execute()`, which is only reachable after passing all guardrail gates.
 
+### Image Digest Integrity (CRITICAL)
+Image references declared in `sandbox_requirements` must include a secure SHA-256 digest (e.g. `image_name@sha256:...`). Do NOT copy digests from prior documentation or implementation plans, as base image layers change frequently on registry servers and cause pull resolution failures. Always run a live `docker pull image_name:tag` or `docker image inspect image_name:tag` at implementation time to obtain the exact current digest from the registry before hardcoding it in a tool spec.
+
 ### Custom Tool Example: `ssl_check.py`
 
 Create a new file in `cadresec/tools/` (e.g. [ssl_check.py](file:///c:/Users/mujum/OneDrive/Desktop/Cadresec/cadresec/tools/ssl_check.py)):
