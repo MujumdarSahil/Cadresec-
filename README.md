@@ -84,8 +84,19 @@ python -m cadresec.cli get-report --session <session-uuid> --db sqlite:///cadres
 
 ---
 
+📦 New Features (Phase 4B)
+Persistent session storage – migrated to SQLite via SQLAlchemy (cadresec/api.py), consolidating session_metadata into the engagement database.
+TECH_DEBT.md – added to document MCP image‑digest policy and other technical‑debt items.
+http_probe tool – implemented as ACTIVE_SAFE; requires operator approval and includes redirect‑refusal and timeout controls.
+ssl_expiry – re‑classified to ACTIVE_SAFE.
+resolve_hostname – added as a PASSIVE MCP tool (via ghcr.io/patrickdappollonio/mcp‑netutils).
+ping_check – introduced for local MCP server regression testing.
+Docker info command timeout increased to 10 seconds for better reliability on Windows.
+Comprehensive E2E tests added for the new tools (tests/test_http_probe.py, tests/test_mcp_ping.py).
+
 ## 🛠️ Developer Extensibility
 
+<<<<<<< HEAD
 To extend Cadresec with new tools or agents without modifying core code, refer to [docs/extending.md](docs/extending.md).
 
 ## 📦 New Features (Phase 4B)
@@ -98,3 +109,6 @@ To extend Cadresec with new tools or agents without modifying core code, refer t
 - **ping_check** introduced for local MCP server regression testing.
 - Docker `info` command timeout increased to 10 seconds for reliability on Windows.
 - Comprehensive E2E tests added for new tools (`tests/test_http_probe.py`, `tests/test_mcp_ping.py`).
+=======
+To extend Cadresec with new tools or agents without modifying core code, refer to [docs/extending.md](file:///c:/Users/mujum/OneDrive/Desktop/Cadresec/docs/extending.md).
+>>>>>>> 86480b89f1a56ad11f16da62ba57a155a7c1fadf
