@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadresec Operator Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-surface: #131926;
+            --bg-card: #1b2336;
+            --bg-card-hover: #232c45;
+            --border: #2e3b56;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --shadow-premium: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+            --font-display: 'Outfit', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        /* Header Navigation */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 2rem;
+            background: rgba(19, 25, 38, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            font-size: 1.75rem;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            font-family: var(--font-display);
+        }
+
+        .logo-text {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-family: var(--font-display);
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: #ffffff;
+            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            border-color: var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* App Container */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+        }
+
+        /* Cards and Sections */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-premium);
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Sidebar Sessions List */
+        .session-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .session-item {
+            padding: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .session-item:hover, .session-item.active {
+            border-color: var(--accent-blue);
+            background: var(--bg-card-hover);
+            transform: translateX(4px);
+        }
+
+        .session-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .session-id-badge {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            text-transform: uppercase;
+        }
+
+        .status-running { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+        .status-paused { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); animation: pulse 2s infinite; }
+        .status-completed { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+        .status-failed { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+        .status-killed { background: rgba(156, 163, 175, 0.15); color: var(--text-secondary); }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .session-target {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        /* Main Workspace View */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Create Session Form */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .form-checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .form-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        /* Pending Approvals Card */
+        .approval-card {
+            background: rgba(245, 158, 11, 0.05);
+            border: 1.5px solid var(--accent-amber);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .approval-info h4 {
+            font-family: var(--font-display);
+            color: var(--accent-amber);
+            font-size: 1.125rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .approval-info p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .approval-info code {
+            background: rgba(245, 158, 11, 0.15);
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--accent-amber);
+        }
+
+        .approval-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* Tabs and Content Areas */
+        .tabs-header {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            padding: 0.75rem 0.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.2s ease;
+        }
+
+        .tab-btn:hover, .tab-btn.active {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            border-radius: 2px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Ledger Timeline */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 1.5rem;
+            border-left: 2px solid var(--border);
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -5px;
+            top: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+
+        .timeline-item.valid::before {
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-event-type {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timeline-time {
+            color: var(--text-secondary);
+        }
+
+        .timeline-details {
+            background: var(--bg-card);
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.825rem;
+            font-family: monospace;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .timeline-hash {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--accent-purple);
+            margin-top: 0.25rem;
+            word-break: break-all;
+        }
+
+        /* Markdown Report Container */
+        .report-body {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            overflow-y: auto;
+            max-height: 600px;
+            font-family: 'Inter', sans-serif;
+            color: #d1d5db;
+        }
+
+        .report-body h1, .report-body h2, .report-body h3 {
+            color: #ffffff;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-family: var(--font-display);
+        }
+
+        .report-body h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+
+        .report-body pre {
+            background: var(--bg-base);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            margin: 1rem 0;
+        }
+
+        .report-body code {
+            font-family: monospace;
+            font-size: 0.875rem;
+            color: var(--accent-cyan);
+        }
+
+        .report-body ul, .report-body ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-base);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--bg-card-hover);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <span class="logo-icon">🛡️</span>
+            <span class="logo-text">Cadresec</span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-secondary" onclick="loadSessions()">🔄 Refresh</button>
+            <button class="btn btn-primary" onclick="showNewSessionModal()">➕ New Engagement</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="grid-layout">
+            <!-- Sidebar: Sessions List -->
+            <div class="card">
+                <h3 class="section-title">Active Sessions</h3>
+                <div class="session-list" id="session-list">
+                    <p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">No active sessions found.</p>
+                </div>
+            </div>
+
+            <!-- Main Workspace -->
+            <div class="workspace" id="workspace">
+                <div class="card" id="no-session-card" style="text-align: center; padding: 6rem 2rem;">
+                    <h2 style="font-family: var(--font-display); margin-bottom: 1rem;">No Session Selected</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Select an active session from the sidebar or start a new security engagement.</p>
+                    <button class="btn btn-primary" onclick="showNewSessionModal()">Start New Session</button>
+                </div>
+
+                <!-- Session Creation View -->
+                <div class="card" id="new-session-card" style="display: none;">
+                    <div class="section-title">
+                        <h2>Initialize New Security Session</h2>
+                        <button class="btn btn-secondary" onclick="hideNewSessionModal()">Back</button>
+                    </div>
+                    <form id="new-session-form" onsubmit="createSession(event)">
+                        <div class="form-group">
+                            <label class="form-label" for="target">Target Host IP / Domain</label>
+                            <input class="form-input" type="text" id="target" placeholder="e.g. 127.0.0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="authorizer">Authorizing Party (RoE CISO / Admin)</label>
+                            <input class="form-input" type="text" id="authorizer" placeholder="e.g. CISO Jane Doe, SecureCorp" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="scope">Authorized Scope List (Space separated)</label>
+                            <input class="form-input" type="text" id="scope" placeholder="e.g. 127.0.0.1 192.168.1.0/24" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Permitted Risk Tiers</label>
+                            <div class="form-checkbox-group">
+                                <label class="form-checkbox-label">
+                                    <input type="checkbox" id="tier-passive" checked> Passive
+                                </label>
+                                <label class="form-checkbox-label">
+                                    <input type="checkbox" id="tier-active-safe" checked> Active Safe
+                                </label>
+                                <label class="form-checkbox-label">
+                                    <input type="checkbox" id="tier-active-risky" checked> Active Risky
+                                </label>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button class="btn btn-primary" type="submit">Launch Session</button>
+                            <button class="btn btn-secondary" type="button" onclick="hideNewSessionModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Active Session Workspace View -->
+                <div id="active-session-workspace" style="display: none; display: flex; flex-direction: column; gap: 1.5rem;">
+                    <!-- Live Approval Card -->
+                    <div class="approval-card" id="approval-box" style="display: none;">
+                        <div class="approval-info">
+                            <h4>🛡️ Authorization Request Required</h4>
+                            <p>An execution step is requesting approval for tool <code id="approval-tool-name">http_probe</code> (risk: <span id="approval-tool-tier" style="font-weight:600;">active-safe</span>).</p>
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn btn-primary" id="btn-approve" onclick="approveSessionTool(true)">Approve</button>
+                            <button class="btn btn-danger" id="btn-reject" onclick="approveSessionTool(false)">Deny</button>
+                        </div>
+                    </div>
+
+                    <!-- Session Header Info -->
+                    <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <h2 id="session-title-id" style="font-family: var(--font-display);">Session Details</h2>
+                                <span class="status-badge" id="session-status-badge">unknown</span>
+                            </div>
+                            <p style="color: var(--text-secondary); margin-top: 0.25rem;">Target: <strong id="session-target-text" style="color:var(--text-primary);">127.0.0.1</strong></p>
+                        </div>
+                        <div>
+                            <button class="btn btn-danger" id="btn-kill" onclick="killSession()">Trigger Kill Switch</button>
+                        </div>
+                    </div>
+
+                    <!-- Details Tab Navigation -->
+                    <div class="card">
+                        <div class="tabs-header">
+                            <button class="tab-btn active" onclick="switchTab('tab-ledger')">Cryptographic Ledger</button>
+                            <button class="tab-btn" onclick="switchTab('tab-report')">Findings Report</button>
+                        </div>
+
+                        <!-- Cryptographic Ledger Timeline -->
+                        <div class="tab-content active" id="tab-ledger">
+                            <div class="timeline" id="timeline-list">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Report Viewer -->
+                        <div class="tab-content" id="tab-report">
+                            <div class="report-body" id="report-view-content">
+                                <p style="color: var(--text-secondary);">No report generated yet. Report compiles automatically when the session finishes successfully.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "API_KEY_PLACEHOLDER";
+        let currentSessionId = null;
+        let activeTab = "tab-ledger";
+        let pollInterval = null;
+
+        // Auto headers utility
+        function getHeaders() {
+            return {
+                "Content-Type": "application/json",
+                "X-API-Key": API_KEY
+            };
+        }
+
+        // Load Sessions
+        async function loadSessions() {
+            try {
+                const res = await fetch("/sessions", { headers: getHeaders() });
+                if (!res.ok) throw new Error("Failed to load sessions");
+                const data = await res.json();
+                
+                const listContainer = document.getElementById("session-list");
+                listContainer.innerHTML = "";
+
+                if (data.sessions.length === 0) {
+                    listContainer.innerHTML = `<p style="color: var(--text-secondary); text-align: center; padding: 2rem 0;">No active sessions found.</p>`;
+                    return;
+                }
+
+                data.sessions.forEach(sess => {
+                    const activeClass = sess.session_id === currentSessionId ? "active" : "";
+                    const item = document.createElement("div");
+                    item.className = `session-item ${activeClass}`;
+                    item.onclick = () => selectSession(sess.session_id);
+                    item.innerHTML = `
+                        <div class="session-item-header">
+                            <span class="session-id-badge">${sess.session_id.substring(0,8)}...</span>
+                            <span class="status-badge status-${sess.status}">${sess.status}</span>
+                        </div>
+                        <div class="session-target">🎯 ${sess.target}</div>
+                    `;
+                    listContainer.appendChild(item);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Select Session
+        async function selectSession(sid) {
+            currentSessionId = sid;
+            document.getElementById("no-session-card").style.display = "none";
+            document.getElementById("new-session-card").style.display = "none";
+            document.getElementById("active-session-workspace").style.display = "block";
+
+            // Mark sidebar items active
+            const items = document.querySelectorAll(".session-item");
+            items.forEach(el => {
+                el.classList.remove("active");
+                if (el.innerHTML.includes(sid.substring(0,8))) {
+                    el.classList.add("active");
+                }
+            });
+
+            // Stop previous poll if active
+            if (pollInterval) clearInterval(pollInterval);
+
+            // Fetch info and start polling
+            await fetchSessionDetails();
+            pollInterval = setInterval(fetchSessionDetails, 2000);
+        }
+
+        // Fetch Session Details
+        async function fetchSessionDetails() {
+            if (!currentSessionId) return;
+
+            try {
+                const res = await fetch(`/sessions/${currentSessionId}/status`, { headers: getHeaders() });
+                if (!res.ok) throw new Error("Session status error");
+                const data = await res.json();
+
+                // Update UI elements
+                document.getElementById("session-title-id").innerText = `Session: ${currentSessionId.substring(0,18)}...`;
+                document.getElementById("session-target-text").innerText = data.target || "Unknown";
+                document.getElementById("session-status-badge").className = `status-badge status-${data.status}`;
+                document.getElementById("session-status-badge").innerText = data.status;
+
+                // Handle approvals card
+                const approvalBox = document.getElementById("approval-box");
+                if (data.status === "paused" && data.pending_approval) {
+                    document.getElementById("approval-tool-name").innerText = data.pending_approval.tool_name;
+                    document.getElementById("approval-tool-tier").innerText = data.pending_approval.risk_tier;
+                    approvalBox.style.display = "flex";
+                } else {
+                    approvalBox.style.display = "none";
+                }
+
+                // Load ledger and timeline
+                loadLedger();
+
+                // Load report if completed
+                if (data.status === "completed") {
+                    loadReport();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Load Ledger entries
+        async function loadLedger() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`/sessions/${currentSessionId}/ledger`, { headers: getHeaders() });
+                if (!res.ok) return;
+                const data = await res.json();
+
+                const timelineContainer = document.getElementById("timeline-list");
+                timelineContainer.innerHTML = "";
+
+                if (!data.events || data.events.length === 0) {
+                    timelineContainer.innerHTML = "<p style='color: var(--text-secondary); text-align: center; padding: 2rem 0;'>No events recorded in ledger.</p>";
+                    return;
+                }
+
+                data.events.forEach(evt => {
+                    const item = document.createElement("div");
+                    item.className = "timeline-item valid";
+                    
+                    const timeFormatted = new Date(evt.timestamp).toLocaleString();
+                    const detailsStr = JSON.stringify(evt.details, null, 2);
+
+                    item.innerHTML = `
+                        <div class="timeline-header">
+                            <span class="timeline-event-type">🔒 ${evt.event_type}</span>
+                            <span class="timeline-time">${timeFormatted}</span>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom: 0.25rem;">Actor: ${evt.actor} | Block: #${evt.sequence_number}</div>
+                        <pre class="timeline-details">${detailsStr}</pre>
+                        <div class="timeline-hash">Hash: ${evt.hash}</div>
+                    `;
+                    timelineContainer.appendChild(item);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Load Markdown Report
+        async function loadReport() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`/sessions/${currentSessionId}/report`, { headers: getHeaders() });
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const reportContainer = document.getElementById("report-view-content");
+                if (data.report) {
+                    // Simple Markdown-to-HTML parser fallback
+                    let rawMd = data.report;
+                    // Replace Headers
+                    rawMd = rawMd.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+                    rawMd = rawMd.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+                    rawMd = rawMd.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                    // Replace Bold
+                    rawMd = rawMd.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>');
+                    // Replace Code blocks
+                    rawMd = rawMd.replace(/```([^`]+)```/gim, '<pre><code>$1</code></pre>');
+                    // Replace Inline code
+                    rawMd = rawMd.replace(/`([^`]+)`/gim, '<code>$1</code>');
+                    // Replace lists
+                    rawMd = rawMd.replace(/^\- (.*$)/gim, '<li>$1</li>');
+                    
+                    reportContainer.innerHTML = rawMd;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Approve / Reject
+        async function approveSessionTool(approve) {
+            if (!currentSessionId) return;
+            
+            const toolName = document.getElementById("approval-tool-name").innerText;
+            const endpoint = approve ? "approve" : "reject";
+
+            try {
+                const res = await fetch(`/sessions/${currentSessionId}/${endpoint}`, {
+                    method: "POST",
+                    headers: getHeaders(),
+                    body: JSON.stringify({ tool_name: toolName })
+                });
+                
+                if (res.ok) {
+                    document.getElementById("approval-box").style.display = "none";
+                    loadSessions();
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || "Approval action failed");
+                }
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // Kill Session
+        async function killSession() {
+            if (!currentSessionId) return;
+            if (!confirm("Are you sure you want to trigger the global kill switch for this session?")) return;
+
+            try {
+                const res = await fetch(`/sessions/${currentSessionId}/kill`, {
+                    method: "POST",
+                    headers: getHeaders()
+                });
+                if (res.ok) {
+                    loadSessions();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Create Session
+        async function createSession(e) {
+            e.preventDefault();
+            const target = document.getElementById("target").value;
+            const authorizer = document.getElementById("authorizer").value;
+            const scopeStr = document.getElementById("scope").value;
+
+            // Formulate RoE JSON
+            const now = new Date();
+            const start = now.toISOString();
+            const end = new Date(now.getTime() + 1000 * 60 * 60 * 2).toISOString(); // 2 hours window
+
+            const scope = scopeStr.split(/\s+/).filter(Boolean);
+            const permitted_risk_tiers = [];
+            if (document.getElementById("tier-passive").checked) permitted_risk_tiers.push("passive");
+            if (document.getElementById("tier-active-safe").checked) permitted_risk_tiers.push("active-safe");
+            if (document.getElementById("tier-active-risky").checked) permitted_risk_tiers.push("active-risky");
+
+            const roe = {
+                authorized_scope: scope,
+                start_time: start,
+                end_time: end,
+                permitted_risk_tiers: permitted_risk_tiers,
+                allow_unsandboxed_fallback: true,
+                authorizing_party: authorizer
+            };
+
+            // Add standard MCP ping_check allowed config
+            const mcp_config = {
+                servers: {
+                    dns_server: {
+                        image: "projectdiscovery/mcp-dns@sha256:7f08c3a93c72d001648a31e84a22c54ee9c5123d548312e3e8f812543d3e8e1f",
+                        tools: {
+                            dns_lookup: {
+                                risk_tier: "passive",
+                                target_parameter: "domain"
+                            }
+                        }
+                    }
+                }
+            };
+
+            try {
+                const res = await fetch("/sessions", {
+                    method: "POST",
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        roe: roe,
+                        target: target,
+                        mcp_config: mcp_config
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    hideNewSessionModal();
+                    loadSessions();
+                    selectSession(data.session_id);
+                } else {
+                    const err = await res.json();
+                    alert("Failed to initialize session: " + (err.detail || "Error"));
+                }
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // UI Modal views
+        function showNewSessionModal() {
+            document.getElementById("no-session-card").style.display = "none";
+            document.getElementById("active-session-workspace").style.display = "none";
+            document.getElementById("new-session-card").style.display = "block";
+        }
+
+        function hideNewSessionModal() {
+            document.getElementById("new-session-card").style.display = "none";
+            if (currentSessionId) {
+                document.getElementById("active-session-workspace").style.display = "block";
+            } else {
+                document.getElementById("no-session-card").style.display = "block";
+            }
+        }
+
+        // Tabs
+        function switchTab(tabId) {
+            activeTab = tabId;
+            const buttons = document.querySelectorAll(".tab-btn");
+            const contents = document.querySelectorAll(".tab-content");
+
+            buttons.forEach(btn => btn.classList.remove("active"));
+            contents.forEach(content => content.classList.remove("active"));
+
+            document.getElementById(tabId).classList.add("active");
+            
+            // Find matched button by click parameter
+            buttons.forEach(btn => {
+                if (btn.outerHTML.includes(tabId)) {
+                    btn.classList.add("active");
+                }
+            });
+        }
+
+        // On Load
+        loadSessions();
+    </script>
+</body>
+</html>

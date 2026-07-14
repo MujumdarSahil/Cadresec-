@@ -239,6 +239,46 @@ def run_session_worker(session_id: str, target: str):
 
 # --- 6. ENDPOINTS ROUTING ---
 
+from fastapi.responses import HTMLResponse, FileResponse
+
+@app.get("/", response_class=HTMLResponse)
+async def get_dashboard():
+    """Serves the premium operator dashboard interface."""
+    import os
+    cwd = os.path.dirname(os.path.abspath(__file__))
+    html_path = os.path.join(cwd, "dashboard.html")
+    
+    with open(html_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+        
+    # Inject active session API key into the template dynamically
+    html_content = html_content.replace("API_KEY_PLACEHOLDER", API_KEY)
+    return HTMLResponse(content=html_content)
+
+@app.get("/sessions", dependencies=[Depends(verify_api_key)])
+async def list_sessions():
+    """Returns a list of all engagement sessions with their status and targets."""
+    sessions_list = []
+    for sid, sess in active_sessions.items():
+        sessions_list.append({
+            "session_id": sid,
+            "target": getattr(sess, "target_ip", ""),
+            "status": getattr(sess, "status", "unknown")
+        })
+    return {"sessions": sessions_list}
+
+@app.get("/sessions/{id}/ledger", dependencies=[Depends(verify_api_key)])
+async def get_session_ledger(id: str):
+    """Retrieves all cryptographic ledger audit events for the session."""
+    sess = active_sessions.get(id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    try:
+        events = sess.audit.get_events()
+        return {"events": events}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch ledger: {str(e)}")
+
 @app.post(
     "/sessions",
     status_code=status.HTTP_201_CREATED,

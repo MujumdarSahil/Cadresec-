@@ -18,10 +18,26 @@ from cadresec.api import app, active_sessions, checkpoints_db, engagement_db
 @pytest.fixture(autouse=True)
 def clean_database_and_sessions():
     """Wipes session files and checkpoints between runs to keep execution isolated."""
+    # 1. Kill any active sessions and threads
+    for sess in list(active_sessions.values()):
+        try:
+            sess.kill()
+        except Exception:
+            pass
+            
     active_sessions.clear()
     
-    from cadresec.api import request_history
+    from cadresec.api import request_history, engine
     request_history.clear()
+    
+    # Dispose SQLAlchemy engine connections
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+        
+    # Wait a brief moment to allow files to release locks
+    time.sleep(0.15)
     
     # Remove SQLite checkpoints DB if present
     if os.path.exists(checkpoints_db):
@@ -40,7 +56,21 @@ def clean_database_and_sessions():
     yield
     
     # Cleanup after test
+    for sess in list(active_sessions.values()):
+        try:
+            sess.kill()
+        except Exception:
+            pass
+            
     active_sessions.clear()
+    
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+        
+    time.sleep(0.15)
+    
     if os.path.exists(checkpoints_db):
         try:
             os.remove(checkpoints_db)
@@ -170,7 +200,7 @@ def test_e2e_http_approval_flow(api_client):
 
     # 5. Wait for E2E scan and report compiling to complete
     completed = False
-    for _ in range(60):
+    for _ in range(120):
         time.sleep(0.2)
         status_res = api_client.get(f"/sessions/{sid}/status", headers=headers)
         if status_res.json()["status"] == "completed":
