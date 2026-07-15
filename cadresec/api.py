@@ -275,7 +275,8 @@ async def get_session_ledger(id: str):
         raise HTTPException(status_code=404, detail="Session not found.")
     try:
         events = sess.audit.get_events()
-        return {"events": events}
+        chain_intact = sess.audit.verify_chain()
+        return {"events": events, "chain_intact": chain_intact}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch ledger: {str(e)}")
 
@@ -325,11 +326,86 @@ async def get_session_status(id: str):
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found.")
         
+    target = getattr(sess, "target_ip", "")
+    scope = sess.roe.authorized_scope if (sess.roe and sess.roe.authorized_scope) else []
+    start_time = sess.roe.start_time.isoformat() if (sess.roe and sess.roe.start_time) else ""
+    end_time = sess.roe.end_time.isoformat() if (sess.roe and sess.roe.end_time) else ""
+    
+    completed_steps = []
+    try:
+        config = {
+            "configurable": {
+                "session": sess,
+                "thread_id": f"api_thread_{id}"
+            }
+        }
+        with SqliteSaver.from_conn_string(checkpoints_db) as checkpointer:
+            graph = build_graph(checkpointer=checkpointer)
+            state_snapshot = graph.get_state(config)
+            if state_snapshot and state_snapshot.values:
+                completed_steps = state_snapshot.values.get("completed_steps", [])
+    except Exception as e:
+        print(f"Error loading completed steps: {e}")
+        
     return {
         "session_id": id,
         "status": sess.status,
         "pending_approval": sess.pending_approval,
-        "error": sess.error_msg
+        "error": sess.error_msg,
+        "target": target,
+        "scope": scope,
+        "start_time": start_time,
+        "end_time": end_time,
+        "completed_steps": completed_steps
+    }
+
+
+@app.get("/sessions/{id}/findings", dependencies=[Depends(verify_api_key)])
+async def get_session_findings(id: str):
+    """Queries open ports and vulnerability findings summary from the OCSF event store."""
+    sess = active_sessions.get(id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found.")
+        
+    try:
+        events = sess.ocsf.read_events(id, class_uid=5010)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read OCSF events: {str(e)}")
+        
+    open_ports = 0
+    has_http = False
+    has_ftp = False
+    has_telnet = False
+    has_other_open = False
+    
+    for event in events:
+        device = event.get("device", {})
+        services = device.get("services", [])
+        for s in services:
+            if s.get("state") == "open":
+                open_ports += 1
+                port = s.get("port")
+                if port == 80:
+                    has_http = True
+                elif port == 21:
+                    has_ftp = True
+                elif port == 23:
+                    has_telnet = True
+                else:
+                    has_other_open = True
+                    
+    destructive_status = "not in scope"
+    if sess.roe and sess.roe.permitted_risk_tiers:
+        if "active-risky" in sess.roe.permitted_risk_tiers:
+            destructive_status = "none detected"
+            
+    return {
+        "open_ports": open_ports,
+        "plaintext_http": "MEDIUM" if has_http else "NONE",
+        "plaintext_ftp": "HIGH" if has_ftp else "NONE",
+        "legacy_telnet": "HIGH" if has_telnet else "NONE",
+        "general_port": "LOW" if has_other_open else "NONE",
+        "destructive": destructive_status
     }
 
 
