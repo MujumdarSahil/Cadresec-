@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from cadresec.core.roe import RiskTier
 from cadresec.core.tools import ToolSpec
 from cadresec.core.ocsf import OCSFDiscovery, DiscoveryDevice, DiscoveredService
+from cadresec.core.evidence import Evidence
 
 
 class SSLInput(BaseModel):
@@ -20,6 +21,7 @@ class SSLOutput(BaseModel):
     expiry_date: str = Field(default="", description="Expiration timestamp of the certificate")
     days_remaining: int = Field(default=-1, description="Days left until expiration")
     actual_scanned_address: str = Field(default="", description="The raw IP address/hostname requested")
+    evidence: List[Evidence] = Field(default_factory=list, description="Extracted Evidence objects")
 
 
 class SSLToolSpec(ToolSpec):
@@ -70,12 +72,23 @@ class SSLToolSpec(ToolSpec):
             )
             session.ocsf.write_event(session.session_id, 5010, discovery)
             
+            evidence_list = []
+            if days_left >= 0:
+                evidence_list.append(Evidence(
+                    category="tls_expiry",
+                    value=str(days_left),
+                    confidence=1.0,
+                    source="SSL Certificate",
+                    originating_tool=self.name
+                ))
+
             return SSLOutput(
                 target=hostname,
                 success=True,
                 expiry_date=expiry_dt.isoformat(),
                 days_remaining=days_left,
-                actual_scanned_address=hostname
+                actual_scanned_address=hostname,
+                evidence=evidence_list
             )
         except Exception as e:
             # We don't raise, we return success=False so downstream agents handle it cleanly
@@ -84,5 +97,6 @@ class SSLToolSpec(ToolSpec):
                 success=False,
                 expiry_date="",
                 days_remaining=-1,
-                actual_scanned_address=hostname
+                actual_scanned_address=hostname,
+                evidence=[]
             )

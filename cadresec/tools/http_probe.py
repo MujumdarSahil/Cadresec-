@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 from cadresec.core.roe import RiskTier
 from cadresec.core.tools import ToolSpec
 from cadresec.core.ocsf import OCSFDiscovery, DiscoveryDevice, DiscoveredService, Endpoint, ConnectionInfo, OCSFNetworkActivity
+from cadresec.core.evidence import Evidence
 
 
 class HTTPProbeInput(BaseModel):
@@ -31,6 +32,7 @@ class HTTPProbeOutput(BaseModel):
     headers: Dict[str, str] = Field(default_factory=dict, description="Parsed HTTP response headers")
     body_length: int = Field(default=0, description="HTTP response body length in bytes")
     actual_scanned_address: str = Field(default="", description="The raw IP address/hostname requested by the container process")
+    evidence: List[Evidence] = Field(default_factory=list, description="Extracted Evidence objects")
 
 
 class HTTPProbeToolSpec(ToolSpec):
@@ -170,13 +172,53 @@ class HTTPProbeToolSpec(ToolSpec):
         if http_code > 0:
             self._map_and_write_ocsf(session, original_target, input_data.port, http_code, headers, actual_addr)
 
+        evidence_list = []
+        if http_code > 0:
+            evidence_list.append(Evidence(
+                category="http_code",
+                value=str(http_code),
+                confidence=1.0,
+                source="HTTP Response",
+                originating_tool=self.name
+            ))
+            for k, v in headers.items():
+                evidence_list.append(Evidence(
+                    category="header",
+                    value=f"{k}: {v}",
+                    confidence=1.0,
+                    source="HTTP Header",
+                    originating_tool=self.name
+                ))
+                if k == "server":
+                    evidence_list.append(Evidence(
+                        category="server",
+                        value=v,
+                        confidence=1.0,
+                        source="HTTP Header",
+                        originating_tool=self.name
+                    ))
+                if k == "set-cookie":
+                    cookie_parts = v.split(";")
+                    if cookie_parts:
+                        cookie_name_val = cookie_parts[0].split("=")
+                        if cookie_name_val:
+                            cookie_name = cookie_name_val[0].strip()
+                            evidence_list.append(Evidence(
+                                category="cookie",
+                                value=cookie_name,
+                                confidence=1.0,
+                                source="Cookie",
+                                originating_tool=self.name
+                            ))
+
         return HTTPProbeOutput(
             target=original_target,
             success=success and http_code > 0,
             http_code=http_code,
             headers=headers,
             body_length=body_length,
-            actual_scanned_address=actual_addr
+            actual_scanned_address=actual_addr,
+            evidence=evidence_list
         )
 
     def _map_and_write_ocsf(self, session, target: str, port: int, http_code: int, headers: Dict[str, str], actual_scanned: str) -> None:

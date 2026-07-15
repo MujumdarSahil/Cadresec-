@@ -2,3 +2,5 @@ pydantic>=2.0
 langgraph>=0.1.0
 sqlalchemy>=2.0
 pytest>=7.0
+dnspython>=2.0
+python-whois>=0.9

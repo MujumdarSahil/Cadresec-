@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from cadresec.core.roe import RiskTier
 from cadresec.core.tools import ToolSpec
 from cadresec.core.ocsf import OCSFDiscovery, DiscoveryDevice, DiscoveredService, Endpoint, ConnectionInfo, OCSFNetworkActivity
+from cadresec.core.evidence import Evidence
 
 
 class NmapInput(BaseModel):
@@ -19,6 +20,7 @@ class NmapOutput(BaseModel):
     raw_xml: str = Field(..., description="Raw XML output from the nmap execution")
     parsed_hosts: List[Dict[str, Any]] = Field(default_factory=list, description="Extracted host and service discovery data")
     actual_scanned_address: str = Field(default="", description="The raw IP address/hostname requested by the container process")
+    evidence: List[Evidence] = Field(default_factory=list, description="Extracted Evidence objects")
 
 
 class NmapToolSpec(ToolSpec):
@@ -111,12 +113,33 @@ class NmapToolSpec(ToolSpec):
         # Write to OCSF Event Store
         self._map_and_write_ocsf(session, original_target, parsed_hosts, actual_addr)
 
+        evidence_list = []
+        for host in parsed_hosts:
+            for p in host.get("ports", []):
+                if p.get("state") == "open":
+                    evidence_list.append(Evidence(
+                        category="port",
+                        value=f"{p.get('port')}/{p.get('protocol')}",
+                        confidence=1.0,
+                        source="Port Scan",
+                        originating_tool=self.name
+                    ))
+                    if p.get("service") and p.get("service") != "unknown":
+                        evidence_list.append(Evidence(
+                            category="server",
+                            value=p.get("service"),
+                            confidence=0.8,
+                            source="Service Detection",
+                            originating_tool=self.name
+                        ))
+
         return NmapOutput(
             target=original_target,
             success=success,
             raw_xml=raw_xml,
             parsed_hosts=parsed_hosts,
-            actual_scanned_address=actual_addr
+            actual_scanned_address=actual_addr,
+            evidence=evidence_list
         )
 
     def _parse_nmap_xml(self, xml_content: str) -> List[Dict[str, Any]]:
