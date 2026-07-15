@@ -111,4 +111,3 @@ To extend Cadresec with new tools or agents without modifying core code, refer t
 - Comprehensive E2E tests added for new tools (`tests/test_http_probe.py`, `tests/test_mcp_ping.py`).
 =======
 To extend Cadresec with new tools or agents without modifying core code, refer to [docs/extending.md](file:///c:/Users/mujum/OneDrive/Desktop/Cadresec/docs/extending.md).
->>>>>>> 86480b89f1a56ad11f16da62ba57a155a7c1fadf
