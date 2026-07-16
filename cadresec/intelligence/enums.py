@@ -20,3 +20,17 @@ class EvidenceType(str, Enum):
     HTTP_CODE = "http_code"
     SERVICE = "service"
     TLS_EXPIRY = "tls_expiry"
+
+
+class TechnologyCategory(str, Enum):
+    SERVER = "Web Server"
+    CMS = "CMS"
+    CDN = "CDN / Cloud Provider"
+    CLOUD = "Cloud Provider"
+    SERVICE = "Service"
+    FRAMEWORK = "Frontend Framework"
+    LIBRARY = "JavaScript Library"
+    LANGUAGE = "Programming Language"
+    BACKEND = "Backend Framework"
+    AUTH = "Authentication Provider"
+    CSS = "CSS Framework"
