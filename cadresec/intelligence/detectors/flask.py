@@ -5,6 +5,6 @@ class FlaskDetector(BaseDetector):
     name = "Flask"
     category = TechnologyCategory.BACKEND
     rules = [
-        (EvidenceType.HEADER, "(?i)server:\s*werkzeug", 0.9, None),
-        (EvidenceType.COOKIE, "(?i)session", 0.1, None)
+        (EvidenceType.HEADER, r"(?i)server:\s*werkzeug", 0.9, None),
+        (EvidenceType.COOKIE, r"(?i)session", 0.1, None)
     ]

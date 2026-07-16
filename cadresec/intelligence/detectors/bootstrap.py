@@ -5,5 +5,5 @@ class BootstrapDetector(BaseDetector):
     name = "Bootstrap"
     category = TechnologyCategory.CSS
     rules = [
-        (EvidenceType.HTML, "(?i)class=.*container.*col-", 0.5, None)
+        (EvidenceType.HTML, r"(?i)class=.*container.*col-", 0.5, None)
     ]

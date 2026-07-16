@@ -5,5 +5,5 @@ class VueJSDetector(BaseDetector):
     name = "Vue.js"
     category = TechnologyCategory.FRAMEWORK
     rules = [
-        (EvidenceType.HTML, "(?i)data-v-[a-f\d]+|__vue__", 0.9, None)
+        (EvidenceType.HTML, r"(?i)data-v-[a-f\d]+|__vue__", 0.9, None)
     ]

@@ -5,5 +5,5 @@ class ApacheDetector(BaseDetector):
     name = "Apache"
     category = TechnologyCategory.SERVER
     rules = [
-        (EvidenceType.SERVER, "(?i)apache(?:/([\d\.]+))?", 1.0, "(?i)apache/([\d\.]+)")
+        (EvidenceType.SERVER, r"(?i)apache(?:/([\d\.]+))?", 1.0, r"(?i)apache/([\d\.]+)")
     ]

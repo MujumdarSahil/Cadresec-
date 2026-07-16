@@ -5,5 +5,5 @@ class NextAuthDetector(BaseDetector):
     name = "NextAuth.js"
     category = TechnologyCategory.AUTH
     rules = [
-        (EvidenceType.COOKIE, "(?i)next-auth\.session-token|__Secure-next-auth\.session-token", 1.0, None)
+        (EvidenceType.COOKIE, r"(?i)next-auth\.session-token|__Secure-next-auth\.session-token", 1.0, None)
     ]

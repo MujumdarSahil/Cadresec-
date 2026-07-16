@@ -5,6 +5,6 @@ class PHPDetector(BaseDetector):
     name = "PHP"
     category = TechnologyCategory.LANGUAGE
     rules = [
-        (EvidenceType.HEADER, "(?i)x-powered-by:.*php/([\d\.]+)", 0.99, "(?i)php/([\d\.]+)"),
-        (EvidenceType.COOKIE, "(?i)PHPSESSID", 0.95, None)
+        (EvidenceType.HEADER, r"(?i)x-powered-by:.*php/([\d\.]+)", 0.99, r"(?i)php/([\d\.]+)"),
+        (EvidenceType.COOKIE, r"(?i)PHPSESSID", 0.95, None)
     ]

@@ -5,5 +5,5 @@ class NginxDetector(BaseDetector):
     name = "Nginx"
     category = TechnologyCategory.SERVER
     rules = [
-        (EvidenceType.SERVER, "(?i)nginx(?:/([\d\.]+))?", 1.0, "(?i)nginx/([\d\.]+)")
+        (EvidenceType.SERVER, r"(?i)nginx(?:/([\d\.]+))?", 1.0, r"(?i)nginx/([\d\.]+)")
     ]

@@ -5,6 +5,6 @@ class DjangoDetector(BaseDetector):
     name = "Django"
     category = TechnologyCategory.BACKEND
     rules = [
-        (EvidenceType.COOKIE, "(?i)csrftoken", 0.7, None),
-        (EvidenceType.HTML, "(?i)csrfmiddlewaretoken", 0.9, None)
+        (EvidenceType.COOKIE, r"(?i)csrftoken", 0.7, None),
+        (EvidenceType.HTML, r"(?i)csrfmiddlewaretoken", 0.9, None)
     ]

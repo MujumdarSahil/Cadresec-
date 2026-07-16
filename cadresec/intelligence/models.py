@@ -31,3 +31,33 @@ class TechnologyProfile(BaseModel):
                 else:
                     data["category"] = str(cat)
         return data
+
+    def to_ocsf_service(self, port: int = 80, protocol: str = "TCP", state: str = "open") -> Any:
+        """Converts this technology profile to an OCSF DiscoveredService object."""
+        from cadresec.core.ocsf import DiscoveredService
+        return DiscoveredService(
+            port=port,
+            protocol=protocol,
+            service=self.name.lower(),
+            state=state,
+            version=self.version
+        )
+
+    def to_ocsf_discovery(self, target: str, port: int, session_id: str) -> Any:
+        """Converts this technology profile and dynamic scan info to an OCSFDiscovery event."""
+        from cadresec.core.ocsf import OCSFDiscovery, DiscoveryDevice
+        service = self.to_ocsf_service(port=port)
+        desc_parts = [f"Detected {self.name}"]
+        if self.version:
+            desc_parts.append(f"version {self.version}")
+        desc_parts.append(f"(confidence: {self.confidence:.2f}). Evidence: {', '.join(self.evidence[:3])}")
+        
+        return OCSFDiscovery(
+            device=DiscoveryDevice(
+                ip=target,
+                hostname=target,
+                description=" | ".join(desc_parts),
+                services=[service]
+            ),
+            session_id=session_id
+        )

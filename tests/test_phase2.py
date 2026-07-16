@@ -249,6 +249,7 @@ def test_nmap_local_server_scan_real(valid_roe):
         if patcher:
             patcher.stop()
         server.shutdown()
+        server.server_close()
 
 
 # --- Sandbox Guardrail and Fallback Tests ---

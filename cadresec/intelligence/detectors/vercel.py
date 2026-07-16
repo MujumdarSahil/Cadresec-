@@ -5,5 +5,5 @@ class VercelDetector(BaseDetector):
     name = "Vercel"
     category = TechnologyCategory.CLOUD
     rules = [
-        (EvidenceType.HEADER, "(?i)x-vercel-", 0.95, None)
+        (EvidenceType.HEADER, r"(?i)x-vercel-", 0.95, None)
     ]

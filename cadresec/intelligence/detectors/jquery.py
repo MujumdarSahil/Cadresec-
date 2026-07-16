@@ -5,5 +5,5 @@ class JQueryDetector(BaseDetector):
     name = "jQuery"
     category = TechnologyCategory.LIBRARY
     rules = [
-        (EvidenceType.SCRIPT, "(?i)jquery(?:-([\d\.]+))?(?:\.min)?\.js", 0.9, "(?i)jquery(?:-([\d\.]+))?")
+        (EvidenceType.SCRIPT, r"(?i)jquery(?:-([\d\.]+))?(?:\.min)?\.js", 0.9, r"(?i)jquery(?:-([\d\.]+))?")
     ]

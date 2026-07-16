@@ -5,5 +5,5 @@ class PythonDetector(BaseDetector):
     name = "Python"
     category = TechnologyCategory.LANGUAGE
     rules = [
-        (EvidenceType.HEADER, "(?i)server:\s*(?:gunicorn|uwsgi)", 0.8, None)
+        (EvidenceType.HEADER, r"(?i)server:\s*(?:gunicorn|uwsgi)", 0.8, None)
     ]

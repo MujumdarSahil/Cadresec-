@@ -5,5 +5,5 @@ class LiteSpeedDetector(BaseDetector):
     name = "LiteSpeed"
     category = TechnologyCategory.SERVER
     rules = [
-        (EvidenceType.SERVER, "(?i)litespeed", 1.0, None)
+        (EvidenceType.SERVER, r"(?i)litespeed", 1.0, None)
     ]

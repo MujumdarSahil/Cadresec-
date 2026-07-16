@@ -5,5 +5,5 @@ class ReactDetector(BaseDetector):
     name = "React"
     category = TechnologyCategory.FRAMEWORK
     rules = [
-        (EvidenceType.HTML, "(?i)data-reactroot|react-root|__react", 0.9, None)
+        (EvidenceType.HTML, r"(?i)data-reactroot|react-root|__react", 0.9, None)
     ]

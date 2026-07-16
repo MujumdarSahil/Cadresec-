@@ -154,3 +154,43 @@ All tools must declare their risk tier inside their `ToolSpec` definition:
 | **Active-Safe** | `RiskTier.ACTIVE_SAFE` | Interactive scans with minimal system load (Port scans). | Prompted once per session, cached. |
 | **Active-Risky** | `RiskTier.ACTIVE_RISKY` | Vulnerability scanning or exploit tests. | Prompted every time before invocation. |
 | **Destructive** | `RiskTier.DESTRUCTIVE` | Destructive attacks or denial of service. | Hard-rejected by framework. |
+
+---
+
+## 4. Custom Technology Detectors
+
+The `FingerprintEngine` dynamically scans and registers signatures using custom detector modules. To add a new technology detector, create a python file under `cadresec/intelligence/detectors/` (e.g., `apache.py`).
+
+### 4.1 Detector Specification Contract
+Every custom detector must inherit from `BaseDetector` and define three core class-level attributes:
+
+1. **`name`**: The exact string matching the target technology (e.g. `"Apache"`).
+2. **`category`**: A `TechnologyCategory` enum value (e.g. `TechnologyCategory.SERVER`, `TechnologyCategory.FRAMEWORK`, `TechnologyCategory.CMS`, `TechnologyCategory.CDN_WAF`, `TechnologyCategory.SERVICE`).
+3. **`rules`**: A list of rule tuples defining evidence matching conditions:
+   * Format: `(EvidenceType, regex_pattern, confidence, optional_version_extraction_regex)`
+   * **CRITICAL REQUIREMENT**: The regex pattern and version extraction regex **MUST use raw string literals (`r"..."`)**. Using standard string literals containing escape characters (like `\d`, `\s`, `\.`, `\w`) raises compile-time `DeprecationWarning` exceptions and fails validation.
+
+### 4.2 Detector Example: `nginx.py`
+Create `cadresec/intelligence/detectors/nginx.py`:
+
+```python
+from cadresec.intelligence.detectors.base import BaseDetector
+from cadresec.intelligence.enums import TechnologyCategory, EvidenceType
+
+class NginxDetector(BaseDetector):
+    name = "Nginx"
+    category = TechnologyCategory.SERVER
+    rules = [
+        # Match Server header to extract version
+        (EvidenceType.SERVER, r"(?i)nginx(?:/([\d\.]+))?", 1.0, r"(?i)nginx/([\d\.]+)")
+    ]
+```
+
+### 4.3 Dynamic Loading & Hardening Validation
+The `DetectorRegistry` dynamically discovers and validates new detectors at startup. If a custom detector class is loaded, it enforces the following:
+* The class must define non-empty `name`, `category`, and `rules` attributes.
+* Every rule in the list must compile successfully as a valid python regular expression.
+* Confidences must be float/integer values strictly bounded between `0.0` and `1.0`.
+
+Any failure to meet these checks triggers a dynamic load warning in the system logs and safely bypasses the malformed detector without crashing the main process.
+

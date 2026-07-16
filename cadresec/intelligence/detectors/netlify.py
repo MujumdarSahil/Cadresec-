@@ -5,5 +5,5 @@ class NetlifyDetector(BaseDetector):
     name = "Netlify"
     category = TechnologyCategory.CLOUD
     rules = [
-        (EvidenceType.HEADER, "(?i)server:\s*netlify", 0.95, None)
+        (EvidenceType.HEADER, r"(?i)server:\s*netlify", 0.95, None)
     ]

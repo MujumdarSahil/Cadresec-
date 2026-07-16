@@ -5,5 +5,5 @@ class Auth0Detector(BaseDetector):
     name = "Auth0"
     category = TechnologyCategory.AUTH
     rules = [
-        (EvidenceType.COOKIE, "(?i)auth0", 1.0, None)
+        (EvidenceType.COOKIE, r"(?i)auth0", 1.0, None)
     ]

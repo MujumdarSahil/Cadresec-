@@ -5,5 +5,5 @@ class FirebaseAuthDetector(BaseDetector):
     name = "Firebase Auth"
     category = TechnologyCategory.AUTH
     rules = [
-        (EvidenceType.COOKIE, "(?i)firebaseauth", 1.0, None)
+        (EvidenceType.COOKIE, r"(?i)firebaseauth", 1.0, None)
     ]

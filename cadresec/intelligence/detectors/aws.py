@@ -5,5 +5,5 @@ class AWSDetector(BaseDetector):
     name = "Amazon Web Services (AWS)"
     category = TechnologyCategory.CLOUD
     rules = [
-        (EvidenceType.HEADER, "(?i)x-amz-|x-amzn-", 0.95, None)
+        (EvidenceType.HEADER, r"(?i)x-amz-|x-amzn-", 0.95, None)
     ]

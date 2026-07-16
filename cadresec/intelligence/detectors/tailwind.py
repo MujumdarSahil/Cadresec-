@@ -5,5 +5,5 @@ class TailwindDetector(BaseDetector):
     name = "Tailwind CSS"
     category = TechnologyCategory.CSS
     rules = [
-        (EvidenceType.HTML, "(?i)class=.*space-y-|bg-[\w]+-\d+", 0.5, None)
+        (EvidenceType.HTML, r"(?i)class=.*space-y-|bg-[\w]+-\d+", 0.5, None)
     ]

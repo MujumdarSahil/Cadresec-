@@ -5,6 +5,6 @@ class CloudflareDetector(BaseDetector):
     name = "Cloudflare"
     category = TechnologyCategory.CDN
     rules = [
-        (EvidenceType.SERVER, "(?i)cloudflare", 1.0, None),
-        (EvidenceType.HEADER, "(?i)cf-ray|cf-cache-status", 0.95, None)
+        (EvidenceType.SERVER, r"(?i)cloudflare", 1.0, None),
+        (EvidenceType.HEADER, r"(?i)cf-ray|cf-cache-status", 0.95, None)
     ]

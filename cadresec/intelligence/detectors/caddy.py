@@ -5,5 +5,5 @@ class CaddyDetector(BaseDetector):
     name = "Caddy"
     category = TechnologyCategory.SERVER
     rules = [
-        (EvidenceType.SERVER, "(?i)caddy(?:/([\d\.]+))?", 1.0, "(?i)caddy/([\d\.]+)")
+        (EvidenceType.SERVER, r"(?i)caddy(?:/([\d\.]+))?", 1.0, r"(?i)caddy/([\d\.]+)")
     ]

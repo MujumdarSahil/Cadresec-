@@ -5,5 +5,5 @@ class ExpressDetector(BaseDetector):
     name = "Express"
     category = TechnologyCategory.BACKEND
     rules = [
-        (EvidenceType.HEADER, "(?i)x-powered-by:.*express", 0.9, None)
+        (EvidenceType.HEADER, r"(?i)x-powered-by:.*express", 0.9, None)
     ]
